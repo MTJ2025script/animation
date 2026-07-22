@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MTJ Animations</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+    <div id="overlay" class="hidden">
+        <div id="menu">
+
+            <!-- Header -->
+            <div id="header">
+                <div id="header-title">
+                    <span class="header-icon">🎭</span>
+                    <span id="menu-title">Animationen</span>
+                </div>
+                <button id="close-btn" title="Schließen">✕</button>
+            </div>
+
+            <!-- Search -->
+            <div id="search-bar">
+                <span class="search-icon">🔍</span>
+                <input
+                    type="text"
+                    id="search-input"
+                    placeholder="Suchen…"
+                    autocomplete="off"
+                    spellcheck="false"
+                />
+                <button id="clear-search" class="hidden">✕</button>
+            </div>
+
+            <!-- Category Tabs -->
+            <div id="category-tabs">
+                <!-- populated by JS -->
+            </div>
+
+            <!-- Emote Grid -->
+            <div id="emote-grid-wrapper">
+                <div id="emote-grid">
+                    <!-- populated by JS -->
+                </div>
+                <div id="no-results" class="hidden">
+                    <span>😶</span>
+                    <p>Keine Emotes gefunden</p>
+                </div>
+            </div>
+
+            <!-- Footer / Active Emote -->
+            <div id="footer">
+                <div id="active-info">
+                    <span id="active-label">–</span>
+                </div>
+                <button id="stop-btn" class="hidden">⏹ Stoppen</button>
+            </div>
+
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

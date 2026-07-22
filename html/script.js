@@ -1,0 +1,362 @@
+/* ═══════════════════════════════════════════
+   MTJ Animation System – script.js
+   UI Logic: categories, search, favorites, emote play
+═══════════════════════════════════════════ */
+
+'use strict';
+
+// ─────────────────────────────────────────────────
+// State
+// ─────────────────────────────────────────────────
+let allEmotes     = [];
+let allCategories = [];
+let favorites     = [];
+let activeIndex   = null;
+let currentCat    = 'all';
+let searchQuery   = '';
+let locale        = {};
+let maxFavorites  = 16;
+
+// ─────────────────────────────────────────────────
+// DOM refs
+// ─────────────────────────────────────────────────
+const overlay      = document.getElementById('overlay');
+const menuTitle    = document.getElementById('menu-title');
+const searchInput  = document.getElementById('search-input');
+const clearSearch  = document.getElementById('clear-search');
+const categoryTabs = document.getElementById('category-tabs');
+const emoteGrid    = document.getElementById('emote-grid');
+const noResults    = document.getElementById('no-results');
+const activeLabel  = document.getElementById('active-label');
+const stopBtn      = document.getElementById('stop-btn');
+const closeBtn     = document.getElementById('close-btn');
+const nativeGetParentResourceName =
+    typeof window.GetParentResourceName === 'function'
+        ? window.GetParentResourceName.bind(window)
+        : null;
+
+// ─────────────────────────────────────────────────
+// Message Bus (FiveM NUI ↔ JS)
+// ─────────────────────────────────────────────────
+window.addEventListener('message', (e) => {
+    const data = e.data;
+    if (!data || !data.action) return;
+
+    switch (data.action) {
+        case 'openMenu':
+            openMenu(data);
+            break;
+        case 'closeMenu':
+            closeMenu();
+            break;
+        case 'updateFavorites':
+            favorites = Array.isArray(data.favorites) ? data.favorites : [];
+            renderGrid();
+            break;
+        case 'setActiveEmote':
+            setActiveEmote(data.index);
+            break;
+        case 'clearActive':
+            clearActive();
+            break;
+    }
+});
+
+// ─────────────────────────────────────────────────
+// Open / Close
+// ─────────────────────────────────────────────────
+function openMenu(data) {
+    allEmotes     = data.emotes       || [];
+    allCategories = data.categories   || [];
+    favorites     = Array.isArray(data.favorites) ? data.favorites : [];
+    locale        = data.locale       || {};
+    maxFavorites  = data.maxFavorites || 16;
+
+    // Apply locale strings
+    if (locale.menu_title)  menuTitle.textContent       = locale.menu_title;
+    if (locale.search_hint) searchInput.placeholder     = locale.search_hint;
+    if (locale.no_results)  noResults.querySelector('p').textContent = locale.no_results;
+
+    currentCat   = 'all';
+    searchQuery  = '';
+    searchInput.value = '';
+    clearSearch.classList.add('hidden');
+
+    renderCategories();
+    renderGrid();
+
+    overlay.classList.remove('hidden');
+    searchInput.focus();
+}
+
+function closeMenu() {
+    overlay.classList.add('hidden');
+    postAction('close');
+}
+
+// ─────────────────────────────────────────────────
+// Category Tabs
+// ─────────────────────────────────────────────────
+function renderCategories() {
+    categoryTabs.innerHTML = '';
+
+    allCategories.forEach((cat) => {
+        const btn = document.createElement('button');
+        btn.className = 'cat-tab' + (cat.id === currentCat ? ' active' : '');
+        btn.dataset.id = cat.id;
+
+        // Use textContent to avoid XSS – no innerHTML with user data
+        const iconSpan = document.createElement('span');
+        iconSpan.className = 'cat-icon';
+        iconSpan.textContent = cat.icon || '';
+
+        btn.appendChild(iconSpan);
+        btn.appendChild(document.createTextNode('\u00a0' + (cat.label || '')));
+        btn.addEventListener('click', () => selectCategory(cat.id));
+        categoryTabs.appendChild(btn);
+    });
+}
+
+function selectCategory(catId) {
+    currentCat = catId;
+    searchQuery = '';
+    searchInput.value = '';
+    clearSearch.classList.add('hidden');
+
+    // Update active tab style
+    document.querySelectorAll('.cat-tab').forEach((btn) => {
+        btn.classList.toggle('active', btn.dataset.id === catId);
+    });
+
+    renderGrid();
+}
+
+// ─────────────────────────────────────────────────
+// Emote Grid
+// ─────────────────────────────────────────────────
+function renderGrid() {
+    const filtered = getFilteredEmotes();
+
+    emoteGrid.innerHTML = '';
+
+    if (filtered.length === 0) {
+        noResults.classList.remove('hidden');
+        return;
+    }
+
+    noResults.classList.add('hidden');
+
+    filtered.forEach(({ emote, index }) => {
+        const card = buildCard(emote, index);
+        emoteGrid.appendChild(card);
+    });
+}
+
+function getFilteredEmotes() {
+    const q = searchQuery.toLowerCase().trim();
+
+    return allEmotes
+        .map((emote, i) => ({ emote, index: i + 1 })) // 1-based for Lua
+        .filter(({ emote, index }) => {
+            // Category filter
+            if (currentCat === 'favorites') {
+                if (!favorites.includes(index)) return false;
+            } else if (currentCat !== 'all') {
+                if (emote.category !== currentCat) return false;
+            }
+
+            // Search filter
+            if (q) {
+                const label = (emote.label || '').toLowerCase();
+                const cat   = (emote.category || '').toLowerCase();
+                if (!label.includes(q) && !cat.includes(q)) return false;
+            }
+
+            return true;
+        });
+}
+
+function buildCard(emote, index) {
+    const isFav    = favorites.includes(index);
+    const isActive = activeIndex === index;
+    const icon     = getEmoteIcon(emote);
+    const typeLabel = getTypeLabel(emote.type);
+
+    const card = document.createElement('div');
+    card.className = 'emote-card' + (isActive ? ' active' : '');
+    card.dataset.index = index;
+
+    // Use textContent for all user-provided strings to prevent XSS
+    const iconSpan = document.createElement('span');
+    iconSpan.className = 'emote-icon';
+    iconSpan.textContent = icon;
+
+    const labelSpan = document.createElement('span');
+    labelSpan.className = 'emote-label';
+    labelSpan.textContent = emote.label || (locale.no_results || 'Unknown');
+
+    const badge = document.createElement('span');
+    badge.className = 'emote-type-badge';
+    if (emote.type) badge.classList.add(emote.type);
+    badge.textContent = typeLabel;
+
+    const favBtn = document.createElement('button');
+    favBtn.className = 'fav-btn' + (isFav ? ' is-fav' : '');
+    favBtn.title = isFav
+        ? (locale.rem_favorite || 'Remove favorite')
+        : (locale.add_favorite || 'Add favorite');
+    favBtn.dataset.index = index;
+    favBtn.textContent = isFav ? '★' : '☆';
+
+    card.appendChild(iconSpan);
+    card.appendChild(labelSpan);
+    card.appendChild(badge);
+    card.appendChild(favBtn);
+
+    // Play emote on card click (not fav button)
+    card.addEventListener('click', (e) => {
+        if (e.target.classList.contains('fav-btn')) return;
+        playEmote(index, emote);
+    });
+
+    // Toggle favorite
+    favBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleFavorite(index);
+    });
+
+    return card;
+}
+
+// ─────────────────────────────────────────────────
+// Emote Actions
+// ─────────────────────────────────────────────────
+function playEmote(index, emote) {
+    if (activeIndex === index) {
+        stopEmote();
+        return;
+    }
+
+    activeIndex = index;
+    updateFooter(emote);
+    highlightCard(index);
+    postAction('playEmote', { index });
+}
+
+function stopEmote() {
+    clearActive();
+    postAction('stopEmote');
+}
+
+function setActiveEmote(index) {
+    activeIndex = index;
+    const emote = allEmotes[index - 1];
+    if (emote) updateFooter(emote);
+    highlightCard(index);
+}
+
+function clearActive() {
+    activeIndex = null;
+    activeLabel.textContent = '–';
+    stopBtn.classList.add('hidden');
+    document.querySelectorAll('.emote-card.active').forEach(c => c.classList.remove('active'));
+}
+
+function updateFooter(emote) {
+    activeLabel.textContent = '';
+    const dot = document.createElement('span');
+    dot.className = 'playing-dot';
+    const text = document.createTextNode(emote.label || '');
+    activeLabel.appendChild(dot);
+    activeLabel.appendChild(text);
+    stopBtn.classList.remove('hidden');
+}
+
+function highlightCard(index) {
+    document.querySelectorAll('.emote-card').forEach(c => c.classList.remove('active'));
+    const card = emoteGrid.querySelector(`[data-index="${index}"]`);
+    if (card) card.classList.add('active');
+}
+
+// ─────────────────────────────────────────────────
+// Favorites
+// ─────────────────────────────────────────────────
+function toggleFavorite(index) {
+    const pos = favorites.indexOf(index);
+    if (pos === -1) {
+        if (favorites.length >= maxFavorites) favorites.shift();
+        favorites.push(index);
+    } else {
+        favorites.splice(pos, 1);
+    }
+
+    postAction('saveFavorites', { favorites });
+    renderGrid();
+}
+
+// ─────────────────────────────────────────────────
+// Search
+// ─────────────────────────────────────────────────
+searchInput.addEventListener('input', () => {
+    searchQuery = searchInput.value;
+    clearSearch.classList.toggle('hidden', !searchQuery);
+    renderGrid();
+});
+
+clearSearch.addEventListener('click', () => {
+    searchQuery = '';
+    searchInput.value = '';
+    clearSearch.classList.add('hidden');
+    searchInput.focus();
+    renderGrid();
+});
+
+// ─────────────────────────────────────────────────
+// Controls
+// ─────────────────────────────────────────────────
+closeBtn.addEventListener('click', closeMenu);
+
+stopBtn.addEventListener('click', stopEmote);
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeMenu();
+});
+
+// ─────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────
+function postAction(action, data = {}) {
+    const resourceName = nativeGetParentResourceName
+        ? nativeGetParentResourceName()
+        : 'animation';
+
+    fetch(`https://${resourceName}/${action}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    }).catch(() => {});
+}
+
+function getEmoteIcon(emote) {
+    if (emote.type === 'prop')     return '🎸';
+    if (emote.type === 'scenario') return '🎬';
+    if (emote.category === 'dance')   return '🎵';
+    if (emote.category === 'sit')     return '🪑';
+    if (emote.category === 'greet')   return '👋';
+    if (emote.category === 'fun')     return '🎉';
+    if (emote.category === 'taunt')   return '😤';
+    if (emote.category === 'idle')    return '🧍';
+    if (emote.category === 'couple')  return '👫';
+    return '▶';
+}
+
+function getTypeLabel(type) {
+    // Use locale strings if available, fall back to static map
+    const map = {
+        scenario: locale.type_scenario || 'Szenario',
+        anim:     locale.type_anim     || 'Anim',
+        prop:     locale.type_prop     || 'Prop',
+        couple:   locale.type_couple   || 'Duo',
+    };
+    return map[type] || type || '';
+}
