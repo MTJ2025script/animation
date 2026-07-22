@@ -9,13 +9,24 @@
 AddEventHandler('mtjanim:notification', function(msg, msgType)
     -- ox_lib falls vorhanden
     if GetResourceState('ox_lib') == 'started' then
-        lib.notify({
+        local notifyData = {
             title       = 'Animationen',
             description = msg,
             type        = msgType or 'info',
             duration    = 4000,
-        })
-        return
+        }
+
+        if type(lib) == 'table' and type(lib.notify) == 'function' then
+            lib.notify(notifyData)
+            return
+        end
+
+        local ok = pcall(function()
+            exports.ox_lib:notify(notifyData)
+        end)
+        if ok then
+            return
+        end
     end
 
     -- ESX-Fallback

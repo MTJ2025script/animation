@@ -322,7 +322,12 @@ document.addEventListener('keydown', (e) => {
 // Helpers
 // ─────────────────────────────────────────────────
 function postAction(action, data = {}) {
-    fetch(`https://${GetParentResourceName()}/${action}`, {
+    const resourceName =
+        typeof window.GetParentResourceName === 'function'
+            ? window.GetParentResourceName()
+            : 'animation';
+
+    fetch(`https://${resourceName}/${action}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -351,9 +356,4 @@ function getTypeLabel(type) {
         couple:   locale.type_couple   || 'Duo',
     };
     return map[type] || type || '';
-}
-
-// FiveM NUI helper
-function GetParentResourceName() {
-    return window.GetParentResourceName ? window.GetParentResourceName() : 'animation';
 }
