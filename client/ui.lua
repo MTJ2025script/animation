@@ -16,8 +16,9 @@ AddEventHandler('mtjanim:notification', function(msg, msgType)
             duration    = 4000,
         }
 
-        if type(lib) == 'table' and type(lib.notify) == 'function' then
-            lib.notify(notifyData)
+        local oxLibGlobal = _G.lib
+        if type(oxLibGlobal) == 'table' and type(oxLibGlobal.notify) == 'function' then
+            oxLibGlobal.notify(notifyData)
             return
         end
 

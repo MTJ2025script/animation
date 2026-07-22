@@ -30,6 +30,10 @@ const noResults    = document.getElementById('no-results');
 const activeLabel  = document.getElementById('active-label');
 const stopBtn      = document.getElementById('stop-btn');
 const closeBtn     = document.getElementById('close-btn');
+const nativeGetParentResourceName =
+    typeof window.GetParentResourceName === 'function'
+        ? window.GetParentResourceName.bind(window)
+        : null;
 
 // ─────────────────────────────────────────────────
 // Message Bus (FiveM NUI ↔ JS)
@@ -322,10 +326,9 @@ document.addEventListener('keydown', (e) => {
 // Helpers
 // ─────────────────────────────────────────────────
 function postAction(action, data = {}) {
-    const resourceName =
-        typeof window.GetParentResourceName === 'function'
-            ? window.GetParentResourceName()
-            : 'animation';
+    const resourceName = nativeGetParentResourceName
+        ? nativeGetParentResourceName()
+        : 'animation';
 
     fetch(`https://${resourceName}/${action}`, {
         method: 'POST',
