@@ -43,15 +43,12 @@ AddEventHandler('mtjanim:notification', function(msg, msgType)
 end)
 
 -- ─────────────────────────────────────────────────
--- Escape-Taste schließt das Menü
+-- NUI-Callback für Escape (ausgelöst vom JS-Keyboard-Handler)
+-- Das Menü schließen wird primär im JS über das keydown-Event gehandelt.
+-- Dieser Callback erlaubt es Lua, den Fokus korrekt zurückzusetzen.
 -- ─────────────────────────────────────────────────
-CreateThread(function()
-    while true do
-        Wait(0)
-        if IsControlJustPressed(0, 322) then -- Escape
-            if GetNuiFocusKeepInput() or IsNuiFocused() then
-                CloseMenu()
-            end
-        end
-    end
+RegisterNUICallback('close', function(_, cb)
+    -- Wird bereits in main.lua registriert; hier nur Schutz falls
+    -- ui.lua vor main.lua geladen wird.
+    cb({})
 end)

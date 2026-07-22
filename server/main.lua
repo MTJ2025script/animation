@@ -1,17 +1,31 @@
 --[[
     MTJ Animation System – server/main.lua
-    Favoriten-Persistenz (einfache In-Memory-Lösung)
+    Favoriten-Persistenz – Identifikation via License/Steam-ID
     Für echte DB-Persistenz: oxmysql / ghmattimysql anpassen
 ]]
 
 local playerFavorites = {}
+
+-- Persistente Spieler-ID (License > Steam > Server-ID als Fallback)
+local function GetPlayerKey(src)
+    local identifiers = GetPlayerIdentifiers(src)
+    for _, id in ipairs(identifiers) do
+        if string.sub(id, 1, 8) == 'license:' then return id end
+    end
+    for _, id in ipairs(identifiers) do
+        if string.sub(id, 1, 6) == 'steam:' then return id end
+    end
+    -- Letzter Fallback: Server-ID (nicht persistent über Reconnects)
+    return tostring(src)
+end
 
 -- ─────────────────────────────────────────────────
 -- Favoriten laden
 -- ─────────────────────────────────────────────────
 RegisterNetEvent('mtjanim:loadFavorites', function()
     local src = source
-    local stored = playerFavorites[src] or {}
+    local key = GetPlayerKey(src)
+    local stored = playerFavorites[key] or {}
     TriggerClientEvent('mtjanim:receiveFavorites', src, stored)
 end)
 
@@ -28,24 +42,26 @@ RegisterNetEvent('mtjanim:saveFavorites', function(data)
     local count   = 0
     for _, v in ipairs(data) do
         if count >= maxFav then break end
-        -- Nur Zahlen (Emote-Indizes) speichern
-        if type(v) == 'number' and v > 0 then
+        -- Nur positive Ganzzahlen (Emote-Indizes) speichern
+        if type(v) == 'number' and math.floor(v) == v and v > 0 then
             table.insert(cleaned, v)
             count = count + 1
         end
     end
 
-    playerFavorites[src] = cleaned
+    local key = GetPlayerKey(src)
+    playerFavorites[key] = cleaned
 
     -- Optional: In Datenbank schreiben
     -- MySQL.update('UPDATE users SET emote_favorites = ? WHERE identifier = ?',
-    --     { json.encode(cleaned), GetPlayerIdentifier(src, 0) })
+    --     { json.encode(cleaned), key })
 end)
 
 -- ─────────────────────────────────────────────────
--- Cleanup beim Disconnect
+-- Cleanup beim Disconnect (nur temporärer In-Memory-Cache)
+-- Die Daten bleiben über key erhalten wenn DB genutzt wird
 -- ─────────────────────────────────────────────────
 AddEventHandler('playerDropped', function()
-    local src = source
-    playerFavorites[src] = nil
+    -- In-Memory bleibt erhalten für Reconnects innerhalb der Session
+    -- playerFavorites[GetPlayerKey(source)] = nil  -- optional leeren
 end)

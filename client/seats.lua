@@ -127,11 +127,12 @@ function SitOnObject(obj, seatData)
         local flag = seatData.animFlag or 49
 
         RequestAnimDict(dict)
-        local t = 0
+        local elapsed = 0
+        local timeout = Config.AnimLoadTimeout or 5000
         while not HasAnimDictLoaded(dict) do
             Wait(10)
-            t = t + 10
-            if t > 5000 then break end
+            elapsed = elapsed + 10
+            if elapsed > timeout then break end
         end
 
         if HasAnimDictLoaded(dict) then

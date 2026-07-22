@@ -108,11 +108,12 @@ function OpenMenu()
     isMenuOpen = true
     SetNuiFocus(true, true)
     SendNUIMessage({
-        action    = 'openMenu',
-        emotes    = Config.Emotes,
-        categories = Config.Categories,
-        favorites  = favorites,
-        locale    = Config.Locales[Config.Locale] or Config.Locales['de'],
+        action       = 'openMenu',
+        emotes       = Config.Emotes,
+        categories   = Config.Categories,
+        favorites    = favorites,
+        maxFavorites = Config.MaxFavorites or 16,
+        locale       = Config.Locales[Config.Locale] or Config.Locales['de'],
     })
 end
 

@@ -28,8 +28,7 @@ function PlayEmote(emote)
     elseif emote.type == 'anim' then
         PlayAnimEmote(ped, emote)
     elseif emote.type == 'prop' then
-        PlayPropEmote(ped, emote)
-    end
+        PlayPropEmote(ped, emote)    end
 
     SetIsPlayingEmote(true)
 
@@ -61,18 +60,19 @@ end
 -- Normale Animation
 -- ─────────────────────────────────────────────────
 function PlayAnimEmote(ped, emote)
-    local dict = emote.dict
-    local anim = emote.anim
-    local flag = emote.flag or 49
+    local dict    = emote.dict
+    local anim    = emote.anim
+    local flag    = emote.flag or 49
+    local timeout = Config.AnimLoadTimeout or 5000
 
     if not dict or not anim then return end
 
     RequestAnimDict(dict)
-    local timeout = 0
+    local elapsed = 0
     while not HasAnimDictLoaded(dict) do
         Wait(10)
-        timeout = timeout + 10
-        if timeout > 5000 then
+        elapsed = elapsed + 10
+        if elapsed > timeout then
             if Config.DevMode then
                 print('[MTJAnim] Anim-Dict Timeout: ' .. dict)
             end
@@ -99,11 +99,12 @@ function PlayPropEmote(ped, emote)
         or propData.model
 
     RequestModel(model)
-    local timeout = 0
+    local elapsed = 0
+    local timeout = Config.AnimLoadTimeout or 5000
     while not HasModelLoaded(model) do
         Wait(10)
-        timeout = timeout + 10
-        if timeout > 5000 then
+        elapsed = elapsed + 10
+        if elapsed > timeout then
             if Config.DevMode then
                 print('[MTJAnim] Prop-Modell Timeout: ' .. tostring(propData.model))
             end
@@ -111,9 +112,9 @@ function PlayPropEmote(ped, emote)
         end
     end
 
-    local prop = CreateModelSwapObject(
+    local prop = CreateAndAttachProp(
         model,
-        propData.bone or 60309,
+        propData.bone   or 60309,
         ped,
         propData.offset or vec3(0, 0, 0),
         propData.rot    or vec3(0, 0, 0),
@@ -124,8 +125,8 @@ function PlayPropEmote(ped, emote)
     PlayAnimEmote(ped, emote)
 end
 
--- Helper: Prop am Ped-Bone erzeugen
-function CreateModelSwapObject(model, bone, ped, offset, rot, collision)
+-- Prop am Ped-Bone erzeugen und anheften
+function CreateAndAttachProp(model, bone, ped, offset, rot, collision)
     local prop = CreateObject(model, 0.0, 0.0, 0.0, true, true, false)
     AttachEntityToEntity(
         prop, ped,

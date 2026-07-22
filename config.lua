@@ -51,6 +51,7 @@ Config.FallbackScenario = 'PROP_HUMAN_SEAT_CHAIR' -- Fallback-Szenario
 Config.MaxFavorites    = 16            -- Max. Anzahl Favoriten pro Spieler
 Config.DevMode         = false         -- Developer-Modus (Offset-Editor, Debug-Ausgaben)
 Config.PropCleanupDelay = 500          -- ms, bevor Prop bei Emote-Stop entfernt wird
+Config.AnimLoadTimeout  = 5000         -- ms, maximale Wartezeit beim Laden von AnimDicts/Modellen
 
 -- ─────────────────────────────────────────────────
 -- Emote-Kategorien
@@ -693,6 +694,10 @@ Config.Locales = {
         rem_favorite     = 'Aus Favoriten entfernen',
         seat_label       = 'Sitzen',
         stand_up         = 'Aufstehen',
+        type_scenario    = 'Szenario',
+        type_anim        = 'Anim',
+        type_prop        = 'Prop',
+        type_couple      = 'Duo',
     },
     en = {
         menu_title       = 'Animations',
@@ -708,6 +713,10 @@ Config.Locales = {
         rem_favorite     = 'Remove from favorites',
         seat_label       = 'Sit',
         stand_up         = 'Stand up',
+        type_scenario    = 'Scenario',
+        type_anim        = 'Anim',
+        type_prop        = 'Prop',
+        type_couple      = 'Duo',
     },
 }
 

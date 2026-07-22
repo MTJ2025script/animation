@@ -15,6 +15,7 @@ let activeIndex   = null;
 let currentCat    = 'all';
 let searchQuery   = '';
 let locale        = {};
+let maxFavorites  = 16;
 
 // ─────────────────────────────────────────────────
 // DOM refs
@@ -61,10 +62,11 @@ window.addEventListener('message', (e) => {
 // Open / Close
 // ─────────────────────────────────────────────────
 function openMenu(data) {
-    allEmotes     = data.emotes     || [];
-    allCategories = data.categories || [];
+    allEmotes     = data.emotes       || [];
+    allCategories = data.categories   || [];
     favorites     = Array.isArray(data.favorites) ? data.favorites : [];
-    locale        = data.locale     || {};
+    locale        = data.locale       || {};
+    maxFavorites  = data.maxFavorites || 16;
 
     // Apply locale strings
     if (locale.menu_title)  menuTitle.textContent       = locale.menu_title;
@@ -98,7 +100,14 @@ function renderCategories() {
         const btn = document.createElement('button');
         btn.className = 'cat-tab' + (cat.id === currentCat ? ' active' : '');
         btn.dataset.id = cat.id;
-        btn.innerHTML = `<span class="cat-icon">${cat.icon}</span> ${escapeHtml(cat.label)}`;
+
+        // Use textContent to avoid XSS – no innerHTML with user data
+        const iconSpan = document.createElement('span');
+        iconSpan.className = 'cat-icon';
+        iconSpan.textContent = cat.icon || '';
+
+        btn.appendChild(iconSpan);
+        btn.appendChild(document.createTextNode('\u00a0' + (cat.label || '')));
         btn.addEventListener('click', () => selectCategory(cat.id));
         categoryTabs.appendChild(btn);
     });
@@ -164,24 +173,41 @@ function getFilteredEmotes() {
 }
 
 function buildCard(emote, index) {
-    const isFav  = favorites.includes(index);
+    const isFav    = favorites.includes(index);
     const isActive = activeIndex === index;
+    const icon     = getEmoteIcon(emote);
+    const typeLabel = getTypeLabel(emote.type);
 
     const card = document.createElement('div');
     card.className = 'emote-card' + (isActive ? ' active' : '');
     card.dataset.index = index;
 
-    const icon      = getEmoteIcon(emote);
-    const typeLabel = getTypeLabel(emote.type);
+    // Use textContent for all user-provided strings to prevent XSS
+    const iconSpan = document.createElement('span');
+    iconSpan.className = 'emote-icon';
+    iconSpan.textContent = icon;
 
-    card.innerHTML = `
-        <span class="emote-icon">${icon}</span>
-        <span class="emote-label">${escapeHtml(emote.label || 'Unbekannt')}</span>
-        <span class="emote-type-badge ${escapeHtml(emote.type || '')}">${typeLabel}</span>
-        <button class="fav-btn${isFav ? ' is-fav' : ''}" title="${isFav ? 'Favorit entfernen' : 'Favorit'}" data-index="${index}">
-            ${isFav ? '★' : '☆'}
-        </button>
-    `;
+    const labelSpan = document.createElement('span');
+    labelSpan.className = 'emote-label';
+    labelSpan.textContent = emote.label || (locale.no_results || 'Unknown');
+
+    const badge = document.createElement('span');
+    badge.className = 'emote-type-badge';
+    if (emote.type) badge.classList.add(emote.type);
+    badge.textContent = typeLabel;
+
+    const favBtn = document.createElement('button');
+    favBtn.className = 'fav-btn' + (isFav ? ' is-fav' : '');
+    favBtn.title = isFav
+        ? (locale.rem_favorite || 'Remove favorite')
+        : (locale.add_favorite || 'Add favorite');
+    favBtn.dataset.index = index;
+    favBtn.textContent = isFav ? '★' : '☆';
+
+    card.appendChild(iconSpan);
+    card.appendChild(labelSpan);
+    card.appendChild(badge);
+    card.appendChild(favBtn);
 
     // Play emote on card click (not fav button)
     card.addEventListener('click', (e) => {
@@ -190,7 +216,7 @@ function buildCard(emote, index) {
     });
 
     // Toggle favorite
-    card.querySelector('.fav-btn').addEventListener('click', (e) => {
+    favBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         toggleFavorite(index);
     });
@@ -227,13 +253,18 @@ function setActiveEmote(index) {
 
 function clearActive() {
     activeIndex = null;
-    activeLabel.innerHTML = '–';
+    activeLabel.textContent = '–';
     stopBtn.classList.add('hidden');
     document.querySelectorAll('.emote-card.active').forEach(c => c.classList.remove('active'));
 }
 
 function updateFooter(emote) {
-    activeLabel.innerHTML = `<span class="playing-dot"></span>${escapeHtml(emote.label || '')}`;
+    activeLabel.textContent = '';
+    const dot = document.createElement('span');
+    dot.className = 'playing-dot';
+    const text = document.createTextNode(emote.label || '');
+    activeLabel.appendChild(dot);
+    activeLabel.appendChild(text);
     stopBtn.classList.remove('hidden');
 }
 
@@ -249,7 +280,7 @@ function highlightCard(index) {
 function toggleFavorite(index) {
     const pos = favorites.indexOf(index);
     if (pos === -1) {
-        if (favorites.length >= 16) favorites.shift();
+        if (favorites.length >= maxFavorites) favorites.shift();
         favorites.push(index);
     } else {
         favorites.splice(pos, 1);
@@ -312,7 +343,13 @@ function getEmoteIcon(emote) {
 }
 
 function getTypeLabel(type) {
-    const map = { scenario: 'Szenario', anim: 'Anim', prop: 'Prop', couple: 'Duo' };
+    // Use locale strings if available, fall back to static map
+    const map = {
+        scenario: locale.type_scenario || 'Szenario',
+        anim:     locale.type_anim     || 'Anim',
+        prop:     locale.type_prop     || 'Prop',
+        couple:   locale.type_couple   || 'Duo',
+    };
     return map[type] || type || '';
 }
 
